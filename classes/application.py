@@ -34,13 +34,21 @@ class Application(object):
         self.USE_HIERARCHICAL_DESCRIPTION = f.to_integer(os.getenv('USE_HIERARCHICAL_DESCRIPTION'))
         self.PLACEHOLDER_FOR_EMPTY_DESCRIPTIONS = os.getenv('PLACEHOLDER_FOR_EMPTY_DESCRIPTIONS')
         self.write_to_aws = int(os.getenv('WRITE_TO_AWS'))
-        self.permitted_measure_types = ('277', '410', '464', '465', '474', '475', '481', '482', '483', '484', '495', '496', '705', '707', '710', '711', '712', '713', '714', '719', '722', '724', '728', '730', '745', '746', '747', '748', '750', '755', '760', '761', '762', '763', '774')
-
         # Check whether UK or XI
         if ("dest" not in sys.argv[0]):
             self.get_scope()
         else:
             self.scope = "uk"
+
+        if self.scope == "xi":
+            self.permitted_measure_types = ('277', '410', '464', '465', '474', '475', '481', '482', '483',
+                                            '484', '495', '496', '705', '707', '710', '711', '712', '713',
+                                            '714', '719', '722', '724', '728', '730', '745', '746', '747',
+                                            '748', '750', '755', '760', '761', '762', '763', '774',
+                                            '551', '552', '553', '554', '695', '696'
+                                            )
+        else:
+            self.permitted_measure_types = ('306', 'XXX')
 
         # Date of the report
         self.get_date()
@@ -55,7 +63,7 @@ class Application(object):
     def get_green_lane_config(self):
         with open(self.GREEN_LANE_CONFIG_FILE, "r") as file:
             self.config_data = json.load(file)
-            self.config_regulations = self.config_data["regulations"]
+            self.config_regulations = self.config_data["rules"]["regulations"]
         a = 1
 
     def create_ssl_unverified_context(self):
@@ -95,12 +103,18 @@ class Application(object):
 
         fields = [
             ["commodity_code", 20],
+            ["entity_type", 20],
+            ["heading", 20],
+            ["subheading", 20],
             ["productline_suffix", 20],
             ["green_lane_eligible", 20],
             ["commodity__sid", 20],
             ["significant_digits", 20],
             ["leaf", 20],
-            ["child_sids", 20]
+            ["child_sid_count", 20],
+            ["leaf_sid_count", 20],
+            ["child_sids", 20],
+            ["leaf_sids", 20]
         ]
         col = 0
         for field, column_width in (fields):
@@ -110,30 +124,51 @@ class Application(object):
         self.workbook_csv_comm_codes.write("\n")
 
         # PUA fields
+        # fields = [
+        #     ["commodity__sid", 20],
+        #     ["commodity__code", 20],
+        #     ["heading", 20],
+        #     ["subheading", 20],
+        #     ["commodity__indent", 20],
+        #     ["commodity__description", 50],
+        #     ["measure__sid", 20],
+        #     ["measure__type__id", 20],
+        #     ["measure__type__description", 30],
+        #     ["measure__additional_code__code", 20],
+        #     ["measure__additional_code__description", 20],
+        #     ["measure__duty_expression", 20],
+        #     ["measure__effective_start_date", 20],
+        #     ["measure__effective_end_date", 20],
+        #     ["measure_reduction_indicator", 20],
+        #     ["measure__footnotes", 20],
+        #     ["measure__conditions", 100],
+        #     ["measure__geographical_area__sid", 20],
+        #     ["measure__geographical_area__id", 20],
+        #     ["measure__geographical_area__description", 20],
+        #     ["measure__excluded_geographical_areas__ids", 20],
+        #     ["measure__excluded_geographical_areas__descriptions", 20],
+        #     ["measure__quota__order_number", 20],
+        #     ["measure__regulation__id", 20],
+        #     ["measure__regulation__url", 30]
+        # ]
+
         fields = [
-            ["commodity__sid", 20],
             ["commodity__code", 20],
-            ["commodity__indent", 20],
+            ["heading", 20],
+            ["subheading", 20],
             ["commodity__description", 50],
-            ["measure__sid", 20],
             ["measure__type__id", 20],
-            ["measure__type__description", 30],
             ["measure__additional_code__code", 20],
-            ["measure__additional_code__description", 20],
             ["measure__duty_expression", 20],
             ["measure__effective_start_date", 20],
             ["measure__effective_end_date", 20],
-            ["measure_reduction_indicator", 20],
             ["measure__footnotes", 20],
             ["measure__conditions", 100],
-            ["measure__geographical_area__sid", 20],
             ["measure__geographical_area__id", 20],
-            ["measure__geographical_area__description", 20],
             ["measure__excluded_geographical_areas__ids", 20],
-            ["measure__excluded_geographical_areas__descriptions", 20],
             ["measure__quota__order_number", 20],
             ["measure__regulation__id", 20],
-            ["measure__regulation__url", 30]
+            ["measure__sid", 20],
         ]
 
         col = 0
@@ -186,6 +221,7 @@ class Application(object):
                 commodity.get_green_lane_eligibility()
                 commodity.cleanse_description()
                 commodity.check_for_chapter()
+                commodity.set_heading_sub_heading()
                 self.commodities.append(commodity)
 
             self.assign_measures_to_commodities()
@@ -313,29 +349,31 @@ class Application(object):
                             show_measure = True
 
                         if show_measure:
-                            self.workbook_csv.write(str(commodity.goods_nomenclature_sid) + ",")
+                            # self.workbook_csv.write(str(commodity.goods_nomenclature_sid) + ",")
                             self.workbook_csv.write(commodity.goods_nomenclature_item_id + ",")
-                            self.workbook_csv.write(str(commodity.number_indents) + ",")
+                            self.workbook_csv.write(commodity.heading + ",")
+                            self.workbook_csv.write(commodity.subheading + ",")
+                            # self.workbook_csv.write(str(commodity.number_indents) + ",")
                             self.workbook_csv.write('"' + commodity.description + '",')
-                            self.workbook_csv.write(str(measure.measure_sid) + ",")
                             self.workbook_csv.write(measure.measure_type_id + ",")
-                            self.workbook_csv.write('"' + measure.measure_type_description + '",')
+                            # self.workbook_csv.write('"' + measure.measure_type_description + '",')
                             self.workbook_csv.write(measure.additional_code + ",")
-                            self.workbook_csv.write('"' + measure.additional_code_description + '",')
+                            # self.workbook_csv.write('"' + measure.additional_code_description + '",')
                             self.workbook_csv.write('"' + measure.english_duty_string + '",')
                             self.workbook_csv.write(measure.validity_start_date + ",")
                             self.workbook_csv.write(end_date + ",")
-                            self.workbook_csv.write(f.process_null(measure.reduction_indicator) + ",")
+                            # self.workbook_csv.write(f.process_null(measure.reduction_indicator) + ",")
                             self.workbook_csv.write('"' + measure.footnotes_string + '",')
                             self.workbook_csv.write('"' + measure.condition_string + '",')
-                            self.workbook_csv.write(str(measure.geographical_area_sid) + ",")
+                            # self.workbook_csv.write(str(measure.geographical_area_sid) + ",")
                             self.workbook_csv.write('"' + measure.geographical_area_id + '",')
-                            self.workbook_csv.write('"' + measure.geographical_area_description + '",')
+                            # self.workbook_csv.write('"' + measure.geographical_area_description + '",')
                             self.workbook_csv.write('"' + measure.measure_excluded_geographical_areas_string + '",')
-                            self.workbook_csv.write('"' + measure.measure_excluded_geographical_area_descriptions_string + '",')
+                            # self.workbook_csv.write('"' + measure.measure_excluded_geographical_area_descriptions_string + '",')
                             self.workbook_csv.write(f.process_null(measure.ordernumber) + ",")
                             self.workbook_csv.write('"' + measure.measure_generating_regulation_id + '",')
-                            self.workbook_csv.write('"' + measure.regulation_url + '"')
+                            # self.workbook_csv.write('"' + measure.regulation_url + '"')
+                            self.workbook_csv.write(str(measure.measure_sid))
                             self.workbook_csv.write("\n")
 
                             self.row_count += 1
@@ -399,40 +437,40 @@ class Application(object):
             self.permitted_measure_types
         ]
         rows = d.run_query(sql, params)
-        for row in rows:
-            measure = Measure()
-            measure.measure_sid = row[0]
-            measure.goods_nomenclature_item_id = row[1]
-            measure.geographical_area_id = row[2]
-            measure.measure_type_id = row[3]
-            measure.measure_generating_regulation_id = row[4]
-            measure.ordernumber = row[5]
-            measure.reduction_indicator = row[6]
-            measure.additional_code_type_id = row[7]
-            measure.additional_code_id = row[8]
-            measure.additional_code = f.null_to_string(row[9])
-            measure.measure_generating_regulation_role = row[10]
-            measure.justification_regulation_role = row[11]
-            measure.justification_regulation_id = row[12]
-            measure.stopped_flag = row[13]
-            measure.geographical_area_sid = row[14]
-            measure.goods_nomenclature_sid = row[15]
-            measure.additional_code_sid = row[16]
-            measure.validity_start_date = row[18]
-            measure.validity_end_date = f.null_to_string(row[19])
-            measure.operation_date = row[20]
-            measure.measure_type_series_id = row[21]
-            measure.measure_component_applicable_code = int(row[22])
-            measure.trade_movement_code = row[23]
-            measure.measure_type_description = row[24]
-            measure.get_import_export()
-            measure.get_additional_code_description()
-            measure.get_geographical_area_description()
-            measure.get_regulation_details()
+        if len(rows) > 0:
+            for row in rows:
+                measure = Measure()
+                measure.measure_sid = row[0]
+                measure.goods_nomenclature_item_id = row[1]
+                measure.geographical_area_id = row[2]
+                measure.measure_type_id = row[3]
+                measure.measure_generating_regulation_id = row[4]
+                measure.ordernumber = row[5]
+                measure.reduction_indicator = row[6]
+                measure.additional_code_type_id = row[7]
+                measure.additional_code_id = row[8]
+                measure.additional_code = f.null_to_string(row[9])
+                measure.measure_generating_regulation_role = row[10]
+                measure.justification_regulation_role = row[11]
+                measure.justification_regulation_id = row[12]
+                measure.stopped_flag = row[13]
+                measure.geographical_area_sid = row[14]
+                measure.goods_nomenclature_sid = row[15]
+                measure.additional_code_sid = row[16]
+                measure.validity_start_date = row[18]
+                measure.validity_end_date = f.null_to_string(row[19])
+                measure.operation_date = row[20]
+                measure.measure_type_series_id = row[21]
+                measure.measure_component_applicable_code = int(row[22])
+                measure.trade_movement_code = row[23]
+                measure.measure_type_description = row[24]
+                measure.get_import_export()
+                measure.get_additional_code_description()
+                measure.get_geographical_area_description()
+                measure.get_regulation_details()
 
-            self.measures.append(measure)
-            self.measures_dict[measure.measure_sid] = measure
-            a = 1
+                self.measures.append(measure)
+                self.measures_dict[measure.measure_sid] = measure
 
         self.end_timer("Getting measures")
 
@@ -552,8 +590,8 @@ class Application(object):
         from measure_conditions mc, utils.materialized_measures_real_end_dates m, measure_types mt
         where m.measure_sid = mc.measure_sid
         and m.measure_type_id = mt.measure_type_id
-        and m.validity_start_date <= %s
         and left(m.goods_nomenclature_item_id, 1) = %s
+        and m.validity_start_date <= %s
         and (m.validity_end_date is null or m.validity_end_date >= %s)
         and m.measure_type_id in %s
         and mt.measure_type_series_id != 'N'
@@ -825,7 +863,7 @@ class Application(object):
         AND (geo1.geographical_area_description_period_sid IN ( SELECT max(geo2.geographical_area_description_period_sid) AS max
         FROM geographical_area_descriptions geo2
         WHERE geo1.geographical_area_id::text = geo2.geographical_area_id::text))
-        and g.validity_end_date is null
+        -- and g.validity_end_date is null
         ORDER BY geo1.geographical_area_id;"""
         self.geographical_areas_friendly = {}
         d = Database()
@@ -1144,6 +1182,8 @@ class Application(object):
                 next_commodity = self.commodities[j]
                 if my_commodity.goods_nomenclature_sid in next_commodity.hierarchy_sids:
                     my_commodity.child_sids.append(next_commodity.goods_nomenclature_sid)
+                    if next_commodity.leaf:
+                        my_commodity.leaf_sids.append(next_commodity.goods_nomenclature_sid)
                 else:
                     break
 
@@ -1208,6 +1248,15 @@ class Application(object):
             self.workbook_csv_comm_codes.write(str(commodity.goods_nomenclature_item_id))
             self.workbook_csv_comm_codes.write(",")
 
+            self.workbook_csv_comm_codes.write(str(commodity.entity_type))
+            self.workbook_csv_comm_codes.write(",")
+
+            self.workbook_csv_comm_codes.write(str(commodity.heading))
+            self.workbook_csv_comm_codes.write(",")
+
+            self.workbook_csv_comm_codes.write(str(commodity.subheading))
+            self.workbook_csv_comm_codes.write(",")
+
             self.workbook_csv_comm_codes.write(str(commodity.productline_suffix))
             self.workbook_csv_comm_codes.write(",")
 
@@ -1223,8 +1272,18 @@ class Application(object):
             self.workbook_csv_comm_codes.write(str(commodity.leaf))
             self.workbook_csv_comm_codes.write(",")
 
+            self.workbook_csv_comm_codes.write(str(len(commodity.child_sids)))
+            self.workbook_csv_comm_codes.write(",")
+
+            self.workbook_csv_comm_codes.write(str(len(commodity.leaf_sids)))
+            self.workbook_csv_comm_codes.write(",")
+
             child_sids = "|".join(str(x) for x in commodity.child_sids)
             self.workbook_csv_comm_codes.write(child_sids)
+            self.workbook_csv_comm_codes.write(",")
+
+            leaf_sids = "|".join(str(x) for x in commodity.leaf_sids)
+            self.workbook_csv_comm_codes.write(leaf_sids)
             self.workbook_csv_comm_codes.write("\n")
 
         for commodity in self.commodities:

@@ -108,7 +108,11 @@ class Measure(object):
 
     def get_geographical_area_description(self):
         if self.geographical_area_sid is not None:
-            self.geographical_area_description = g.app.geographical_areas_friendly[self.geographical_area_sid]
+            try:
+                self.geographical_area_description = g.app.geographical_areas_friendly[self.geographical_area_sid]
+            except Exception as e:
+                print(e.args)
+                sys.exit()
 
     def get_geographical_area_exclusions(self):
         if len(self.measure_excluded_geographical_areas) > 0:
@@ -125,7 +129,15 @@ class Measure(object):
             self.regulation_group_id = ""
 
     def get_condition_string(self):
-        self.condition_string = "|".join(str(mc.condition_string) for mc in self.measure_conditions)
+        certificates = []
+        for mc in self.measure_conditions:
+            if mc.certificate not in certificates:
+                certificates.append(mc.certificate)
+
+        # self.condition_string = "|".join(str(mc.condition_string) for mc in self.measure_conditions)
+        # self.condition_string = ",".join(str(mc.condition_string) for mc in self.measure_conditions)
+        certificates.sort()
+        self.condition_string = ",".join(certificates)
 
     def get_footnote_string(self):
         if self.measure_sid == -1011994528:

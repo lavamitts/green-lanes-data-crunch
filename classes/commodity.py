@@ -20,9 +20,14 @@ class Commodity(object):
         self.supplementary_unit_string = ""
         self.hierarchy_description_string = ""
         self.child_sids = []
+        self.leaf_sids = []
         self.green_lane_data = {
             "measure_types": {}
         }
+
+    def set_heading_sub_heading(self):
+        self.heading = self.goods_nomenclature_item_id[0:4]
+        self.subheading = self.goods_nomenclature_item_id[0:6]
 
     def get_green_lane_eligibility(self):
         self.green_lane_eligible = False
@@ -62,7 +67,10 @@ class Commodity(object):
             else:
                 self.entity_type = "Heading"
         else:
-            self.entity_type = "Commodity"
+            if self.leaf:
+                self.entity_type = "Commodity"
+            else:
+                self.entity_type = "Subheading"
 
     def apply_commodity_inheritance(self):
         self.measure_sids = []
