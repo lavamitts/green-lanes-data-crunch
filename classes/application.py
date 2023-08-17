@@ -18,7 +18,6 @@ from classes.measure_condition import MeasureCondition
 from classes.measure_excluded_geographical_area import MeasureExcludedGeographicalArea
 from classes.geographical_area_member import GeographicalAreaMember
 from classes.aws_bucket import AwsBucket
-from classes.sendgrid_mailer import SendgridMailer
 
 
 class Application(object):
@@ -33,7 +32,6 @@ class Application(object):
 
         self.USE_HIERARCHICAL_DESCRIPTION = f.to_integer(os.getenv('USE_HIERARCHICAL_DESCRIPTION'))
         self.PLACEHOLDER_FOR_EMPTY_DESCRIPTIONS = os.getenv('PLACEHOLDER_FOR_EMPTY_DESCRIPTIONS')
-        self.write_to_aws = int(os.getenv('WRITE_TO_AWS'))
         # Check whether UK or XI
         if ("dest" not in sys.argv[0]):
             self.get_scope()
@@ -238,37 +236,6 @@ class Application(object):
             json.dump(self.green_lane_json, f, indent=4)
 
         self.end_timer("Saving file")
-        self.load_and_mail()
-
-    def load_and_mail(self):
-        return
-        green_lane_crunch_folder = "preference_utilisation"
-        # Load to AWS (main measures file)
-        my_file = os.path.join(os.getcwd(), "_export", self.scope, self.SNAPSHOT_DATE, self.file_only)
-        aws_path = os.path.join(self.scope, green_lane_crunch_folder, self.MEASURES_FILENAME, self.file_only)
-        aws_path = os.path.join(
-            self.scope,
-            "reporting",
-            self.SNAPSHOT_YEAR,
-            self.SNAPSHOT_MONTH,
-            self.SNAPSHOT_DAY,
-            "preference_utilisation",
-            self.file_only
-        )
-        a = 1
-        url = self.load_to_aws("Loading preference utilisation analysis file " + self.SNAPSHOT_DATE, my_file, aws_path)
-
-        # Send the email (Prefs)
-        if url is not None:
-            subject = "Preference utilisation analysis file for " + self.SNAPSHOT_DATE
-            content = "<p>Hello,</p>"
-            content += "<p><b>Preference utilisation analysis file</b><br>"
-            content += "The preference utilisation analysis file for " + self.SNAPSHOT_DATE + " has been uploaded to this location:</p><p>" + url + "</p>"
-
-            content += "<p>Thank you.</p>"
-            content += "<p>The Online Tariff team.</p>"
-            attachment_list = []
-            self.send_email_message(subject, content, attachment_list)
 
     def get_quota_statuses(self):
         for m in self.measures:
@@ -1115,22 +1082,6 @@ class Application(object):
                 commodity.number_indents = -1
 
         self.end_timer("Rebasing chapters")
-
-    def load_to_aws(self, msg, file, aws_path):
-        if self.write_to_aws == 1:
-            print(msg)
-            bucket = AwsBucket()
-            ret = bucket.upload_file(file, aws_path)
-            return ret
-        else:
-            return None
-
-    def send_email_message(self, subject, content, attachment_list):
-        self.send_mail = int(os.getenv('SEND_MAIL'))
-        if self.send_mail == 0:
-            return
-        s = SendgridMailer(subject, content, attachment_list)
-        s.send()
 
     def start_timer(self, msg):
         self.tic = time.perf_counter()
